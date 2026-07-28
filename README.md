@@ -52,6 +52,43 @@ cd FEDARB
 pnpm install
 ```
 
+This reads `package.json` + `pnpm-lock.yaml` and installs everything below. You don't need to install these one by one — they're already listed in `package.json` — but here's what each one does, so you know **why** it's there.
+
+#### Runtime dependencies
+
+| Package            | Purpose                                                                 |
+|----------------------|---------------------------------------------------------------------------|
+| `express`             | Web framework — handles routing, middleware, requests/responses          |
+| `@prisma/client`      | Auto-generated, type-safe DB query client (generated from your schema)   |
+| `prisma`              | Prisma CLI — migrations, schema management, Prisma Studio                |
+| `pg`                  | PostgreSQL driver — used under the hood by Prisma to talk to Postgres     |
+| `dotenv`              | Loads variables from `.env` into `process.env`                           |
+| `cors`                | Enables Cross-Origin Resource Sharing (lets frontend on a diff. port/domain call this API) |
+| `helmet`              | Sets secure HTTP headers (basic security hardening)                      |
+| `cookie-parser`       | Parses cookies from incoming requests (needed for refresh-token cookies) |
+| `morgan`              | HTTP request logger (console logs like `GET /api/health 200 8ms`)        |
+| `winston`             | Structured/file logging (for `logs/` folder, more advanced than morgan)  |
+| `jsonwebtoken`        | Creates & verifies JWT access/refresh tokens for auth                    |
+| `bcrypt`              | Hashes passwords before storing them in the DB                           |
+| `zod`                 | Schema validation for request bodies (e.g. validate signup payload)      |
+
+#### Dev dependencies (not shipped to production)
+
+| Package      | Purpose                                                    |
+|---------------|--------------------------------------------------------------|
+| `nodemon`      | Auto-restarts server on file changes during development     |
+| `eslint`       | Lints code for errors/style issues                            |
+| `prettier`     | Auto-formats code consistently                                |
+
+If you ever need to add a new package later, use:
+
+```bash
+pnpm add <package-name>          # runtime dependency
+pnpm add -D <package-name>       # dev-only dependency
+```
+
+Do **not** use `npm install` in this project — it will create a `package-lock.json` alongside `pnpm-lock.yaml` and cause lockfile conflicts. Stick to `pnpm` for every install/add/remove.
+
 ### 3. Set up environment variables
 
 Create a `.env` file in the project root (copy from `.env.example` if present):
@@ -81,31 +118,93 @@ REFRESH_TOKEN_EXPIRES_IN=7d
 > 🔒 **Never commit your `.env` file.** It's already covered by `.gitignore`.
 > 🔒 **Note:** if a GitHub token or any secret was ever committed to this repo's history or remote URL, revoke it immediately and rewrite git history — don't just delete the file, since old commits still contain it.
 
-### 4. Set up the database with Prisma
+### 4. Set up PostgreSQL
 
-Generate the Prisma Client:
+You need a running PostgreSQL server before Prisma can do anything. Pick one option:
+
+**Option A — Local PostgreSQL (Windows/Mac/Linux)**
+
+1. Install PostgreSQL from [postgresql.org/download](https://www.postgresql.org/download/) (or via a package manager).
+2. During install, set a password for the default `postgres` superuser — remember it.
+3. Create a database for this project. Open `psql` (or pgAdmin) and run:
+
+```sql
+CREATE DATABASE fedarb;
+```
+
+That's it — you don't need to create tables manually, Prisma migrations do that.
+
+**Option B — Hosted PostgreSQL (no local install needed)**
+
+Free options that work well for dev: [Neon](https://neon.tech), [Supabase](https://supabase.com), or [Railway](https://railway.app). Create a project on any of these and they'll hand you a ready-made connection string — skip straight to step 5 below.
+
+### 5. Configure `DATABASE_URL`
+
+Prisma connects to Postgres using a single connection string in `.env`. Format:
+
+```
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME?schema=public"
+```
+
+Breakdown:
+
+| Part            | Meaning                                                      | Local example  |
+|-------------------|-----------------------------------------------------------------|------------------|
+| `USER`             | Postgres username                                                 | `postgres`         |
+| `PASSWORD`         | Password for that user                                            | whatever you set    |
+| `HOST`              | Where Postgres is running                                          | `localhost`          |
+| `PORT`               | Postgres port (default is `5432`)                                   | `5432`                 |
+| `DATABASE_NAME`       | The DB you created                                                   | `fedarb`                 |
+| `?schema=public`       | Which Postgres schema Prisma uses (default `public` is fine)          | `public`                    |
+
+So for a local setup it'd look like:
+
+```env
+DATABASE_URL="postgresql://postgres:mypassword@localhost:5432/fedarb?schema=public"
+```
+
+If you're using Neon/Supabase/Railway, just paste the connection string they give you — it already has this format (often with `?sslmode=require` appended, which is fine to keep).
+
+**Sanity check the connection** before running migrations:
+
+```bash
+npx prisma db pull
+```
+
+If this runs without a connection error, Prisma can reach your database. (It may say "no tables found" — that's expected before migrating, and totally fine.)
+
+### 6. Generate Prisma Client & run migrations
+
+Generate the Prisma Client (creates the type-safe query builder based on `prisma/schema.prisma`):
 
 ```bash
 pnpm prisma:generate
 ```
 
-Run migrations to create tables in your database (this applies the existing migration in `prisma/migrations/`):
+Run this any time you change `schema.prisma`, or after a fresh `pnpm install`.
+
+Apply migrations — this creates the actual tables in your database:
 
 ```bash
 pnpm prisma:migrate
 ```
 
 This will:
-- Create the `users` table (with `Role` enum: `ADMIN`, `USER`)
+- Read the existing migration in `prisma/migrations/20260728172809_init/`
+- Create the `users` table + `Role` enum (`ADMIN`, `USER`) in your database
 - Keep your local DB schema in sync with `prisma/schema.prisma`
 
-(Optional) Open Prisma Studio to view/edit data visually:
+If you change `schema.prisma` later (add a field/model), running `pnpm prisma:migrate` again will prompt you for a migration name and generate a new migration file automatically — you don't write SQL by hand.
+
+(Optional) Open Prisma Studio to view/edit data visually in the browser:
 
 ```bash
 pnpm prisma:studio
 ```
 
-### 5. Run the development server
+This opens at `http://localhost:5555` and lets you browse/edit rows in the `users` table like a spreadsheet.
+
+### 7. Run the development server
 
 ```bash
 pnpm dev
@@ -113,7 +212,7 @@ pnpm dev
 
 The server will start on `http://localhost:8000` (or whatever `PORT` you set), with **nodemon** auto-restarting on file changes.
 
-### 6. Run in production mode
+### 8. Run in production mode
 
 ```bash
 pnpm start
