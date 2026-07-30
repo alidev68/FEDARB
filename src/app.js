@@ -3,10 +3,9 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
-
+const errorHandler = require("./middlewares/errorHandler.middleware");
 
 const app = express();
-
 
 // Security middleware
 app.use(helmet());
@@ -19,18 +18,14 @@ app.use(
   })
 );
 
-
 // Request logger
 app.use(morgan("dev"));
-
 
 // Body parser
 app.use(express.json());
 
-
 // Cookie parser
 app.use(cookieParser());
-
 
 // Health check route
 app.get("/api/health", (req, res) => {
@@ -40,8 +35,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-
-
+app.use(errorHandler);
 module.exports = app;
 
 
