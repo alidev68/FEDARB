@@ -2,10 +2,6 @@
 
 A RESTful backend built with **Node.js**, **Express.js**, **Prisma ORM**, and **PostgreSQL**.
 
-> ⚠️ **Project status:** Early scaffold stage. Server, security middleware, and Prisma/DB connection are set up and working. Controllers, routes, services, repositories, and validations are not implemented yet — this README documents the current setup so anyone (including future-you) can clone and run it immediately.
-
----
-
 ## Tech Stack
 
 | Layer            | Technology                          |
@@ -15,7 +11,7 @@ A RESTful backend built with **Node.js**, **Express.js**, **Prisma ORM**, and **
 | ORM                | Prisma 6                             |
 | Database           | PostgreSQL                           |
 | Auth (planned)     | JWT (`jsonwebtoken`) + `bcrypt`       |
-| Validation (planned)| Zod                                |
+| Validation (planned)| joi                             |
 | Logging            | Winston, Morgan                      |
 | Security           | Helmet, CORS, cookie-parser          |
 | Package manager    | pnpm                                 |

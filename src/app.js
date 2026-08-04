@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 const errorHandler = require("./middlewares/errorHandler.middleware");
+const authRoutes = require("./routes/auth.routes");
 
 const app = express();
 
@@ -34,7 +35,7 @@ app.get("/api/health", (req, res) => {
     message: "FEDARB API is running 🚀",
   });
 });
-
+app.use("/api/v1/auth", authRoutes);
 app.use(errorHandler);
 module.exports = app;
 

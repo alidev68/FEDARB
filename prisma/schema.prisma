@@ -9,30 +9,73 @@ datasource db {
 
 enum Role {
   ADMIN
-  USER
+  CASE_MANAGER
+  ARBITRATOR
+  MEDIATOR
+  CLIENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }
 
 model User {
-  id          String   @id @default(cuid())
-
+  id          String   @id @default(uuid())
   firstName   String
   lastName    String
-
   email       String   @unique
   password    String
-
   phoneNumber String?
-
-  role        Role     @default(USER)
+  role        Role     @default(CASE_MANAGER)
 
   isActive    Boolean  @default(true)
-
   isVerified  Boolean  @default(false)
 
-  refreshToken  String?
+  invitation  Invitation?
+
+  passwordResetTokens PasswordResetToken[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("users")
+}
+
+model Invitation {
+  id          String           @id @default(uuid())
+  email       String           @unique
+  role        Role
+  status      InvitationStatus @default(PENDING)
+  token       String           @unique
+
+  invitedBy   String?
+
+  userId      String?          @unique
+  user        User?            @relation(fields: [userId], references: [id])
+
+  expiresAt   DateTime
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("invitations")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+
+  token     String   @unique
+
+  userId    String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
 }
